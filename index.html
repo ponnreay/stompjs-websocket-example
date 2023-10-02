@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+    Username: <input type="text" id="username"><br>
+    Password: <input type="password" id="password"><br>
+    <button onclick="login()">Login</button>
+    <span id="login-status" style="font-weight: bold;"></span>
+    <hr>
+
+    <div>Status: <span id="status"></span></div>
+    <button onclick="connect()">Connect</button>
+    <button onclick="disconnect()">Disconnect</button> <br>
+
+    <div id="message"></div>
+</body>
+<script type="importmap">
+    {
+      "imports": {
+        "@stomp/stompjs": "https://ga.jspm.io/npm:@stomp/stompjs@7.0.0/esm6/index.js"
+      }
+    }
+  </script>
+<script type="module">
+    import { Client } from '@stomp/stompjs';
+
+    let baseUrl = `example.com:8080`
+
+    let url = `ws://${baseUrl}/ws`
+    let topic = `/topic/request-change/badges`
+
+    let status = null
+    let token = null
+    let client = new Client({
+        brokerURL: url,
+        onConnect: () => {
+            document.getElementById("status").innerText = "Connected"
+            client.subscribe(topic, function (message) {
+                let msgElement = document.getElementById("message")
+                if (msgElement.innerHTML.trim() == '') {
+                    msgElement.innerHTML = message + ': body: ' + message.body
+                    return
+                }
+                msgElement.innerHTML = `${message}: body: ${message.body}<br>======================================================<br>${msgElement.innerHTML}`
+            });
+        }
+    })
+
+    function connect() {
+        if (token == null) {
+            alert("Please login first")
+            return
+        }
+        if (status == 'Connected') {
+            return
+        }
+        document.getElementById("status").innerText = "Connecting.."
+        client.connectHeaders = {
+            'Authorization': `Bearer ${token}`
+        }
+        client.activate();
+    }
+
+    function disconnect() {
+        if (status != 'Connected') {
+            return
+        }
+        client.deactivate()
+        document.getElementById("status").innerText = "Disconnected"
+    }
+
+    /******************************************************************************************************************/
+    async function login() {
+        let username = document.getElementById("username")
+        let password = document.getElementById("password")
+        let response = await fetch(`http://${baseUrl}/api/v1/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: username.value, password: password.value })
+        })
+        let result = await response.json()
+        token = result.data.token
+        document.getElementById("login-status").innerText = "Login Success"
+    }
+
+    window.connect = connect
+    window.disconnect = disconnect
+    window.login = login
+</script>
+
+</html>
